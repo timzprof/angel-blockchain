@@ -37,6 +37,10 @@ def verify_transaction(transaction):
     return sender_balance >= transaction['amount']
 
 
+def verify_transactions():
+    return all([verify_transaction(tx) for tx in open_transactions])
+
+
 def add_transaction(recipient, sender=owner, amount=1.0):
     """ Append a new value as well as the last blockchain transaction
 
@@ -67,15 +71,16 @@ def mine_block():
         'recipient': owner,
         'amount': MINING_REWARD
     }
-    open_transactions.append(reward_transaction)
+
+    copied_transactions =  open_transactions[:].append(reward_transaction)
 
     block = {
         'previous_hash': hashed_block,
         'index': len(blockchain),
-        'transactions': open_transactions
+        'transactions': copied_transactions
     }
     blockchain.append(block)
-    return  True
+    return True
 
 
 def get_transaction_value():
@@ -116,6 +121,7 @@ while waiting_for_input:
     print('2: Mine a new block')
     print('3: Output the blockchain blocks')
     print('4: Output the participants')
+    print('5: Check transactions validity')
     print('h: Manipulate the chain')
     print('q: Quit')
 
@@ -138,6 +144,11 @@ while waiting_for_input:
         print_blockchain_elements()
     elif choice == '4':
         print(participants)
+    elif choice == '5':
+        if verify_transactions():
+            print('All transactions are valid')
+        else:
+            print('Invalid transactions found')
     elif choice == 'h':
         # Make sure that you don't try to "hack" the blockchain
         if len(blockchain) >= 1:
