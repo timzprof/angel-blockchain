@@ -1,9 +1,11 @@
 from functools import reduce
 from collections import OrderedDict
+import json
+# import pickle
 
 from hash_util import hash_block, hash_string_256
 
-# Initializing our blockchain list
+# Mining Reward
 MINING_REWARD = 10
 
 GENESIS_BLOCK = {
@@ -12,10 +14,65 @@ GENESIS_BLOCK = {
     'transactions': [],
     'proof': 100
 }
+
+# Initializing our blockchain list
 blockchain = [GENESIS_BLOCK]
+# Unhandled Transacrtions
 open_transactions = []
 owner = 'Tim'
 participants = {'Tim'}
+
+
+def load_data():
+    with open('blockchain.txt', mode='r') as file:
+        file_content = file.readlines()
+        global blockchain
+        global open_transactions
+
+        # Using JSON
+        blockchain = json.loads(file_content[0][:-1])
+        blockchain = [{
+            'previous_hash': block['previous_hash'],
+            'index': block['index'],
+            'proof':  block['proof'],
+            'transactions': [
+                OrderedDict([
+                    ('sender', tx['sender']),
+                    ('recipient', tx['recipient']),
+                    ('amount', tx['amount'])
+                ])
+                for tx in block['transactions']]
+        } for block in blockchain]
+        open_transactions = json.loads(file_content[1])
+        open_transactions = [
+            OrderedDict([
+                ('sender', tx['sender']),
+                ('recipient', tx['recipient']),
+                ('amount', tx['amount'])
+            ])
+            for tx in open_transactions]
+
+        # Pickling
+        # blockchain = file_content['chain']
+        # open_transactions = file_content['ot']
+
+
+# Load data from blockchain file
+load_data()
+
+def save_data():
+    with open('blockchain.txt', mode='w') as file:
+        # Using JSON
+        file.write(json.dumps(blockchain))
+        file.write('\n')
+        file.write(json.dumps(open_transactions))
+        
+        # Pickling 
+        # save_data = {
+        #     'chain': blockchain,
+        #     'ot': open_transactions
+        # }
+        # file.write(pickle.dumps(save_data))        
 
 
 def valid_proof(transactions, last_hash, proof):
@@ -34,12 +91,16 @@ def proof_of_work():
 
 
 def get_balance(participant):
-    tx_sender = [[tx['amount'] for tx in block['transactions'] if tx['sender'] == participant] for block in blockchain]
-    open_tx_sender = [tx['amount'] for tx  in open_transactions if tx['sender'] == participant]
+    tx_sender = [[tx['amount'] for tx in block['transactions']
+                  if tx['sender'] == participant] for block in blockchain]
+    open_tx_sender = [tx['amount']
+                      for tx in open_transactions if tx['sender'] == participant]
     tx_sender.append(open_tx_sender)
 
-    tx_recipient = [[tx['amount'] for tx in block['transactions'] if tx['recipient'] == participant] for block in blockchain]
-    amount_sent = reduce(lambda tx_sum, tx_amt: tx_sum + sum(tx_amt) if len(tx_amt) > 0 else tx_sum, tx_sender, 0)
+    tx_recipient = [[tx['amount'] for tx in block['transactions']
+                     if tx['recipient'] == participant] for block in blockchain]
+    amount_sent = reduce(lambda tx_sum, tx_amt: tx_sum +
+                         sum(tx_amt) if len(tx_amt) > 0 else tx_sum, tx_sender, 0)
     # amount_sent = sum([tx[0] for tx in tx_sender if len(tx) > 0])
     amount_received = sum([tx[0] for tx in tx_recipient if len(tx) > 0])
     return amount_received - amount_sent
@@ -84,6 +145,7 @@ def add_transaction(recipient, sender=owner, amount=1.0):
         open_transactions.append(transaction)
         participants.add(sender)
         participants.add(recipient)
+        save_data()
         return True
     return False
 
@@ -177,8 +239,9 @@ while waiting_for_input:
             print('Transaction failed!')
         print(open_transactions)
     elif choice == '2':
-       if  mine_block():
-           open_transactions = []
+        if mine_block():
+            open_transactions = []
+            save_data()
     elif choice == '3':
         print_blockchain_elements()
     elif choice == '4':
